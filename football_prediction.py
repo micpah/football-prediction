@@ -314,6 +314,18 @@ class Estimator:
         """Override in subclass"""
         pass
 
+    def fit(self, epochs=5):
+        callbacks = [
+            # keras.callbacks.ModelCheckpoint(
+            #     "best_model.h5", save_best_only=True, monitor="val_loss"),
+            keras.callbacks.EarlyStopping(
+                monitor="val_loss", patience=50, verbose=1,
+                restore_best_weights=True)
+        ]
+        self.history = self.model.fit(
+            self.ds_train, epochs=epochs, callbacks=callbacks,
+            validation_data=self.ds_val)
+
     @staticmethod
     def _dataframe_to_dataset(dataframe, shuffle=True, batch_size=64):
         df = dataframe.copy()
@@ -405,6 +417,7 @@ if __name__ == "__main__":
     print("Transform data")
     df = transform(df)
     print(df.shape)
+    print(df.winner.value_counts() / df.shape[0])
 
     print("\nMODELING")
 
@@ -413,18 +426,27 @@ if __name__ == "__main__":
     clf._check()
     clf.build_model()
     clf.model.summary()
-    utils.plot_model(clf.model, to_file='./doc/gfx/model_clf.png', show_shapes=True, rankdir="LR")
+    # utils.plot_model(clf.model, to_file='./doc/gfx/model_clf.png', show_shapes=True, rankdir="LR")
+    print("Train and evaluate classifier")
+    clf.fit()
+    clf.model.evaluate(clf.ds_test)
 
     print("\nInitialize regressor (for home_score) and build model")
     rgr1 = Regressor(df, target_name='home_score')
     rgr1._check()
     rgr1.build_model()
     rgr1.model.summary()
-    utils.plot_model(rgr1.model, to_file='./doc/gfx/model_rgr_home.png', show_shapes=True, rankdir="LR")
+    # utils.plot_model(rgr1.model, to_file='./doc/gfx/model_rgr_home.png', show_shapes=True, rankdir="LR")
+    print("Train and evaluate regressor")
+    rgr1.fit()
+    rgr1.model.evaluate(rgr1.ds_test)
 
     print("\nInitialize regressor (for away_score) and build model")
     rgr2 = Regressor(df, target_name='away_score')
     rgr2._check()
     rgr2.build_model()
     rgr2.model.summary()
-    utils.plot_model(rgr2.model, to_file='./doc/gfx/model_rgr_away.png', show_shapes=True, rankdir="LR")
+    # utils.plot_model(rgr2.model, to_file='./doc/gfx/model_rgr_away.png', show_shapes=True, rankdir="LR")
+    print("Train and evaluate regressor")
+    rgr2.fit()
+    rgr2.model.evaluate(rgr2.ds_test)
