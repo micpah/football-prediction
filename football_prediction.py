@@ -1,4 +1,14 @@
+import numpy as np
 import pandas as pd
+
+from tensorflow.data import Dataset
+from tensorflow.keras import utils
+
+
+
+######################################
+### Functions for DATA PREPARATION ###
+######################################
 
 
 def read(path, **kwargs):
@@ -254,7 +264,80 @@ def _combine_features(data):
     return df
 
 
+
+##########################################
+### Functions and Classes for MODELING ###
+##########################################
+
+
+def split(dataframe):
+    train, val, test = np.split(
+        dataframe.sample(frac=1),
+        [int(0.75*len(dataframe)), int(0.9*len(dataframe))])
+    print(len(train), 'training examples')
+    print(len(val), 'validation examples')
+    print(len(test), 'test examples')
+    return (train, val, test)
+
+
+class Estimator:
+    def __init__(self, dataframe, target_name):
+        dataframe = dataframe.rename(columns={target_name: 'target'})
+        cols  = ['home', 'away', 'date', 'home_score', 'away_score', 'winner']
+        dataframe = dataframe.drop(columns=cols , errors='ignore')
+        df_train, df_val, df_test = split(dataframe)
+        self.ds_train = self._dataframe_to_dataset(df_train)
+        self.ds_val = self._dataframe_to_dataset(df_val, shuffle=False)
+        self.ds_test = self._dataframe_to_dataset(df_test, shuffle=False)
+        self.feature_names = list(dataframe.drop(columns=['target']).columns)
+        self.metric = None  # Set in subclass
+        self.model = None
+        self.history = None
+
+    @staticmethod
+    def _dataframe_to_dataset(dataframe, shuffle=True, batch_size=64):
+        df = dataframe.copy()
+        labels = df.pop('target')
+        ds = Dataset.from_tensor_slices((dict(df), labels))
+        if shuffle:
+            ds = ds.shuffle(buffer_size=len(dataframe))
+        ds = ds.batch(batch_size)
+        ds = ds.prefetch(batch_size)
+        return ds
+
+    def _check(self):
+        [(train_features, label_batch)] = self.ds_train.take(1)
+        print('Every feature:', list(train_features.keys()))
+        print('A batch of goals_diff:', train_features['goals_diff'])
+        print('A batch of targets:', label_batch )
+
+
+class Classifier(Estimator):
+    def __init__(self, dataframe, target_name='winner'):
+        super().__init__(dataframe, target_name)
+        self.metric = 'accuracy'
+
+    @staticmethod
+    def _dataframe_to_dataset(dataframe, shuffle=True, batch_size=64):
+        df = dataframe.copy()
+        labels = utils.to_categorical(df.pop('target'), 3)
+        ds = Dataset.from_tensor_slices((dict(df), labels))
+        if shuffle:
+            ds = ds.shuffle(buffer_size=len(dataframe))
+        ds = ds.batch(batch_size)
+        ds = ds.prefetch(batch_size)
+        return ds
+
+
+class Regressor(Estimator):
+    def __init__(self, dataframe, target_name='home_score'):
+        super().__init__(dataframe, target_name)
+        self.metric = 'mae'
+ 
+
+
 if __name__ == "__main__":
+    print("DATA PREPARATION")
     print("Read data")
     df = read('./data/matches.csv')
     print("Preprocess data")
@@ -262,3 +345,12 @@ if __name__ == "__main__":
     print("Transform data")
     df = transform(df)
     print(df.shape)
+
+    print("\nMODELING")
+    print("Initialize estimator objects")
+    clf = Classifier(df)
+    clf._check()
+    rgr1 = Regressor(df, target_name='home_score')
+    rgr1._check()
+    rgr2 = Regressor(df, target_name='away_score')
+    rgr2._check()
