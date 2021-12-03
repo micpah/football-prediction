@@ -1,8 +1,11 @@
 import numpy as np
 import pandas as pd
+import tensorflow as tf
 
+from tensorflow import keras
 from tensorflow.data import Dataset
-from tensorflow.keras import utils
+from tensorflow.keras import layers, utils
+from tensorflow.keras.layers.experimental import preprocessing
 
 
 
@@ -279,6 +282,19 @@ def split(dataframe):
     print(len(test), 'test examples')
     return (train, val, test)
 
+@tf.autograph.experimental.do_not_convert
+def encode_numerical_feature(feature, name, dataset):
+    # Create a Normalization layer for our feature
+    normalizer = preprocessing.Normalization()
+    # Prepare a Dataset that only yields our feature
+    feature_ds = dataset.map(lambda x, y: x[name])
+    feature_ds = feature_ds.map(lambda x: tf.expand_dims(x, -1))
+    # Learn the statistics of the data
+    normalizer.adapt(feature_ds)
+    # Normalize the input feature
+    encoded_feature = normalizer(feature)
+    return encoded_feature
+
 
 class Estimator:
     def __init__(self, dataframe, target_name):
@@ -294,6 +310,10 @@ class Estimator:
         self.model = None
         self.history = None
 
+    def build_model(self):
+        """Override in subclass"""
+        pass
+
     @staticmethod
     def _dataframe_to_dataset(dataframe, shuffle=True, batch_size=64):
         df = dataframe.copy()
@@ -304,6 +324,17 @@ class Estimator:
         ds = ds.batch(batch_size)
         ds = ds.prefetch(batch_size)
         return ds
+
+    def _inputs_and_encoded_features(self):
+        all_inputs = []
+        encoded_features = []
+        # Numerical features
+        for name in self.feature_names:
+            feature = keras.Input(shape=(1,), name=name)
+            feature_en = encode_numerical_feature(feature, name, self.ds_train)
+            all_inputs.append(feature)
+            encoded_features.append(feature_en)
+        return (all_inputs, encoded_features)
 
     def _check(self):
         [(train_features, label_batch)] = self.ds_train.take(1)
@@ -316,6 +347,21 @@ class Classifier(Estimator):
     def __init__(self, dataframe, target_name='winner'):
         super().__init__(dataframe, target_name)
         self.metric = 'accuracy'
+
+    def build_model(self):
+        # Deep Feed Forward
+        all_inputs, encoded_features = self._inputs_and_encoded_features()
+        all_features = layers.concatenate(encoded_features)
+        x = layers.Dense(128, activation='relu')(all_features)
+        x = layers.Dropout(0.5)(x)
+        x = layers.Dense(128, activation='relu')(x)
+        x = layers.Dropout(0.5)(x)
+        # Multiclass Classification -> Softmax
+        output = layers.Dense(3, activation='softmax')(x)
+        model = keras.Model(all_inputs, output)
+        model.compile(
+            'adam', 'categorical_crossentropy', metrics=[self.metric])
+        self.model = model
 
     @staticmethod
     def _dataframe_to_dataset(dataframe, shuffle=True, batch_size=64):
@@ -334,6 +380,20 @@ class Regressor(Estimator):
         super().__init__(dataframe, target_name)
         self.metric = 'mae'
  
+    def build_model(self):
+        # Deep Feed Forward
+        all_inputs, encoded_features = self._inputs_and_encoded_features()
+        all_features = layers.concatenate(encoded_features)
+        x = layers.Dense(128, activation='relu')(all_features)
+        x = layers.Dropout(0.5)(x)
+        x = layers.Dense(128, activation='relu')(x)
+        x = layers.Dropout(0.5)(x)
+        # Regression -> Linear
+        output = layers.Dense(1, activation='linear')(x)
+        model = keras.Model(all_inputs, output)
+        model.compile('adam', 'mse', metrics=[self.metric])
+        self.model = model
+
 
 
 if __name__ == "__main__":
@@ -347,10 +407,24 @@ if __name__ == "__main__":
     print(df.shape)
 
     print("\nMODELING")
-    print("Initialize estimator objects")
+
+    print("\nInitialize classifier and build model")
     clf = Classifier(df)
     clf._check()
+    clf.build_model()
+    clf.model.summary()
+    utils.plot_model(clf.model, to_file='./doc/gfx/model_clf.png', show_shapes=True, rankdir="LR")
+
+    print("\nInitialize regressor (for home_score) and build model")
     rgr1 = Regressor(df, target_name='home_score')
     rgr1._check()
+    rgr1.build_model()
+    rgr1.model.summary()
+    utils.plot_model(rgr1.model, to_file='./doc/gfx/model_rgr_home.png', show_shapes=True, rankdir="LR")
+
+    print("\nInitialize regressor (for away_score) and build model")
     rgr2 = Regressor(df, target_name='away_score')
     rgr2._check()
+    rgr2.build_model()
+    rgr2.model.summary()
+    utils.plot_model(rgr2.model, to_file='./doc/gfx/model_rgr_away.png', show_shapes=True, rankdir="LR")
