@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 import tensorflow as tf
 
 from tensorflow import keras
@@ -348,6 +349,17 @@ class Estimator:
             self.ds_train, epochs=epochs, callbacks=callbacks,
             validation_data=self.ds_val)
 
+    def plot_validation_curve(self):
+        plt.figure()
+        plt.plot(self.history.history[self.metric])
+        plt.plot(self.history.history["val_" + self.metric])
+        plt.title("model " + self.metric)
+        plt.ylabel(self.metric, fontsize="large")
+        plt.xlabel("epoch", fontsize="large")
+        plt.legend(["train", "val"], loc="best")
+        plt.show()
+        plt.close()
+
     @staticmethod
     def _dataframe_to_dataset(dataframe, shuffle=True, batch_size=64):
         df = dataframe.copy()
@@ -451,4 +463,9 @@ if __name__ == "__main__":
     # utils.plot_model(clf.model, to_file='./doc/gfx/model_clf.png', show_shapes=True, rankdir="LR")
     # utils.plot_model(rgr1.model, to_file='./doc/gfx/model_rgr_home.png', show_shapes=True, rankdir="LR")
     # utils.plot_model(rgr2.model, to_file='./doc/gfx/model_rgr_away.png', show_shapes=True, rankdir="LR")
+
+    # Plot validation curves
+    clf.plot_validation_curve()
+    rgr1.plot_validation_curve()
+    rgr2.plot_validation_curve()
 
