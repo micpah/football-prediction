@@ -14,6 +14,18 @@ from tensorflow.keras.layers.experimental import preprocessing
 ######################################
 
 
+def run_data_preparation(path, n_trend=5):
+    print("Read data")
+    df = read(path)
+    print("Preprocess data")
+    df = preprocess(df)
+    print("Transform data")
+    df = transform(df, n_trend)
+    print(df.shape)
+    print(df.winner.value_counts() / df.shape[0])
+    return df
+
+
 def read(path, **kwargs):
     """Return dataframe with relevant columns of CSV file given by path.
     
@@ -310,6 +322,16 @@ class Estimator:
         self.model = None
         self.history = None
 
+    def run(self, epochs=5):
+        self._check()
+        print("\nBuild model")
+        self.build_model()
+        self.model.summary()
+        print("Train and evaluate model")
+        self.fit(epochs)
+        self.model.evaluate(self.ds_test)
+        return self
+
     def build_model(self):
         """Override in subclass"""
         pass
@@ -410,43 +432,23 @@ class Regressor(Estimator):
 
 if __name__ == "__main__":
     print("DATA PREPARATION")
-    print("Read data")
-    df = read('./data/matches.csv')
-    print("Preprocess data")
-    df = preprocess(df)
-    print("Transform data")
-    df = transform(df)
-    print(df.shape)
-    print(df.winner.value_counts() / df.shape[0])
+    df = run_data_preparation('./data/matches.csv')
 
     print("\nMODELING")
-
-    print("\nInitialize classifier and build model")
+    print("\nRun multiclass classification")
     clf = Classifier(df)
-    clf._check()
-    clf.build_model()
-    clf.model.summary()
-    # utils.plot_model(clf.model, to_file='./doc/gfx/model_clf.png', show_shapes=True, rankdir="LR")
-    print("Train and evaluate classifier")
-    clf.fit()
-    clf.model.evaluate(clf.ds_test)
+    clf.run()
 
-    print("\nInitialize regressor (for home_score) and build model")
+    print("\nRun regression (for home_score)")
     rgr1 = Regressor(df, target_name='home_score')
-    rgr1._check()
-    rgr1.build_model()
-    rgr1.model.summary()
-    # utils.plot_model(rgr1.model, to_file='./doc/gfx/model_rgr_home.png', show_shapes=True, rankdir="LR")
-    print("Train and evaluate regressor")
-    rgr1.fit()
-    rgr1.model.evaluate(rgr1.ds_test)
+    rgr1.run()
 
-    print("\nInitialize regressor (for away_score) and build model")
+    print("\nRun regression (for away_score)")
     rgr2 = Regressor(df, target_name='away_score')
-    rgr2._check()
-    rgr2.build_model()
-    rgr2.model.summary()
+    rgr2.run()
+
+    # Plot and save model graphs
+    # utils.plot_model(clf.model, to_file='./doc/gfx/model_clf.png', show_shapes=True, rankdir="LR")
+    # utils.plot_model(rgr1.model, to_file='./doc/gfx/model_rgr_home.png', show_shapes=True, rankdir="LR")
     # utils.plot_model(rgr2.model, to_file='./doc/gfx/model_rgr_away.png', show_shapes=True, rankdir="LR")
-    print("Train and evaluate regressor")
-    rgr2.fit()
-    rgr2.model.evaluate(rgr2.ds_test)
+
