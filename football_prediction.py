@@ -1,4 +1,4 @@
-# from tensorflow.keras import utils
+# from tensorflow.keras.utils import plot_model
 
 from data import read, preprocess, transform
 from model import Classifier, Regressor
@@ -32,9 +32,9 @@ if __name__ == "__main__":
     rgr2.run(epochs=100)
 
     # Plot and save model graphs
-    # utils.plot_model(clf.model, to_file='./doc/gfx/model_clf.png', show_shapes=True, rankdir="LR")
-    # utils.plot_model(rgr1.model, to_file='./doc/gfx/model_rgr_home.png', show_shapes=True, rankdir="LR")
-    # utils.plot_model(rgr2.model, to_file='./doc/gfx/model_rgr_away.png', show_shapes=True, rankdir="LR")
+    # plot_model(clf.model, to_file='./doc/gfx/model_clf.png', show_shapes=True, rankdir="LR")
+    # plot_model(rgr1.model, to_file='./doc/gfx/model_rgr_home.png', show_shapes=True, rankdir="LR")
+    # plot_model(rgr2.model, to_file='./doc/gfx/model_rgr_away.png', show_shapes=True, rankdir="LR")
 
     # Plot validation curves
     clf.plot_validation_curve()

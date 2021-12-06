@@ -1,15 +1,18 @@
-import numpy as np
 import matplotlib.pyplot as plt
-import tensorflow as tf
 
-from tensorflow import keras
+from numpy import split
+from tensorflow import expand_dims
+from tensorflow.autograph.experimental import do_not_convert
 from tensorflow.data import Dataset
-from tensorflow.keras import layers, utils
-from tensorflow.keras.layers.experimental import preprocessing
+from tensorflow.keras import Input, Model
+from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.layers import concatenate, Dense, Dropout
+from tensorflow.keras.layers.experimental.preprocessing import Normalization
+from tensorflow.keras.utils import to_categorical
 
 
-def split(dataframe):
-    train, val, test = np.split(
+def train_val_test_split(dataframe):
+    train, val, test = split(
         dataframe.sample(frac=1),
         [int(0.75*len(dataframe)), int(0.9*len(dataframe))])
     print(len(train), 'training examples')
@@ -18,13 +21,13 @@ def split(dataframe):
     return (train, val, test)
 
 
-@tf.autograph.experimental.do_not_convert
+@do_not_convert
 def encode_numerical_feature(feature, name, dataset):
     # Create a Normalization layer for our feature
-    normalizer = preprocessing.Normalization()
+    normalizer = Normalization()
     # Prepare a Dataset that only yields our feature
     feature_ds = dataset.map(lambda x, y: x[name])
-    feature_ds = feature_ds.map(lambda x: tf.expand_dims(x, -1))
+    feature_ds = feature_ds.map(lambda x: expand_dims(x, -1))
     # Learn the statistics of the data
     normalizer.adapt(feature_ds)
     # Normalize the input feature
@@ -37,7 +40,7 @@ class Estimator:
         dataframe = dataframe.rename(columns={target_name: 'target'})
         cols  = ['home', 'away', 'date', 'home_score', 'away_score', 'winner']
         dataframe = dataframe.drop(columns=cols , errors='ignore')
-        df_train, df_val, df_test = split(dataframe)
+        df_train, df_val, df_test = train_val_test_split(dataframe)
         self.ds_train = self._dataframe_to_dataset(df_train)
         self.ds_val = self._dataframe_to_dataset(df_val, shuffle=False)
         self.ds_test = self._dataframe_to_dataset(df_test, shuffle=False)
@@ -62,9 +65,9 @@ class Estimator:
 
     def fit(self, epochs=5):
         callbacks = [
-            # keras.callbacks.ModelCheckpoint(
+            # ModelCheckpoint(
             #     "best_model.h5", save_best_only=True, monitor="val_loss"),
-            keras.callbacks.EarlyStopping(
+            EarlyStopping(
                 monitor="val_loss", patience=50, verbose=1,
                 restore_best_weights=True)
         ]
@@ -99,7 +102,7 @@ class Estimator:
         encoded_features = []
         # Numerical features
         for name in self.feature_names:
-            feature = keras.Input(shape=(1,), name=name)
+            feature = Input(shape=(1,), name=name)
             feature_en = encode_numerical_feature(feature, name, self.ds_train)
             all_inputs.append(feature)
             encoded_features.append(feature_en)
@@ -120,14 +123,14 @@ class Classifier(Estimator):
     def build_model(self):
         # Deep Feed Forward
         all_inputs, encoded_features = self._inputs_and_encoded_features()
-        all_features = layers.concatenate(encoded_features)
-        x = layers.Dense(128, activation='relu')(all_features)
-        x = layers.Dropout(0.5)(x)
-        x = layers.Dense(128, activation='relu')(x)
-        x = layers.Dropout(0.5)(x)
+        all_features = concatenate(encoded_features)
+        x = Dense(128, activation='relu')(all_features)
+        x = Dropout(0.5)(x)
+        x = Dense(128, activation='relu')(x)
+        x = Dropout(0.5)(x)
         # Multiclass Classification -> Softmax
-        output = layers.Dense(3, activation='softmax')(x)
-        model = keras.Model(all_inputs, output)
+        output = Dense(3, activation='softmax')(x)
+        model = Model(all_inputs, output)
         model.compile(
             'adam', 'categorical_crossentropy', metrics=[self.metric])
         self.model = model
@@ -135,7 +138,7 @@ class Classifier(Estimator):
     @staticmethod
     def _dataframe_to_dataset(dataframe, shuffle=True, batch_size=64):
         df = dataframe.copy()
-        labels = utils.to_categorical(df.pop('target'), 3)
+        labels = to_categorical(df.pop('target'), 3)
         ds = Dataset.from_tensor_slices((dict(df), labels))
         if shuffle:
             ds = ds.shuffle(buffer_size=len(dataframe))
@@ -152,13 +155,13 @@ class Regressor(Estimator):
     def build_model(self):
         # Deep Feed Forward
         all_inputs, encoded_features = self._inputs_and_encoded_features()
-        all_features = layers.concatenate(encoded_features)
-        x = layers.Dense(128, activation='relu')(all_features)
-        x = layers.Dropout(0.5)(x)
-        x = layers.Dense(128, activation='relu')(x)
-        x = layers.Dropout(0.5)(x)
+        all_features = concatenate(encoded_features)
+        x = Dense(128, activation='relu')(all_features)
+        x = Dropout(0.5)(x)
+        x = Dense(128, activation='relu')(x)
+        x = Dropout(0.5)(x)
         # Regression -> Linear
-        output = layers.Dense(1, activation='linear')(x)
-        model = keras.Model(all_inputs, output)
+        output = Dense(1, activation='linear')(x)
+        model = Model(all_inputs, output)
         model.compile('adam', 'mse', metrics=[self.metric])
         self.model = model

@@ -1,4 +1,4 @@
-import pandas as pd
+from pandas import read_csv, to_datetime, DataFrame, concat
 
 
 def read(path, **kwargs):
@@ -25,7 +25,7 @@ def read(path, **kwargs):
         # 'home_formation', 'away_formation',
         'League'
     ]
-    dataframe = pd.read_csv(
+    dataframe = read_csv(
         path, low_memory=False, index_col='id', usecols=cols, **kwargs
     )
     return dataframe
@@ -96,13 +96,13 @@ def _derive_date(dataframe):
     # Extract month and day info from date column
     temp = dataframe.date.str.split(' ', expand=True)
     days = temp[2].astype(int)
-    months = pd.to_datetime(temp[1], format='%B').dt.month
+    months = to_datetime(temp[1], format='%B').dt.month
     # Original year contains start of season (e.g. 2018 for season 18/19) which
     # is not before August. So we need to add 1 year for the second half of the
     # season (plus summer break), i.e. if date is between January - July.
     years = [y+1 if m<8 else y for y, m in zip(dataframe.year, months)]
-    df_date = pd.DataFrame({'year': years, 'month': months, 'day': days})
-    return pd.to_datetime(df_date)
+    df_date = DataFrame({'year': years, 'month': months, 'day': days})
+    return to_datetime(df_date)
 
 
 def transform(dataframe, n_trend=5):
@@ -152,7 +152,7 @@ def _mean_stats_of_last_n_matches(dataframe, n=5):
             # (otherwise information would leak into "future" target).
             n, min_periods=1).mean().shift()
         all_stats.append(mean_stats)
-    return pd.concat(all_stats)
+    return concat(all_stats)
 
 def _matches_arranged_by_home_and_away_teams(dataframe):
     """Return dataframe with matches arranged by teams, i.e. home and away in
@@ -161,7 +161,7 @@ def _matches_arranged_by_home_and_away_teams(dataframe):
     """
     home = _matches_arranged_by_home_teams(dataframe)
     away = _matches_arranged_by_away_teams(dataframe)
-    df = pd.concat([home, away]).sort_index()
+    df = concat([home, away]).sort_index()
     # Add new column for points
     df = df.assign(points=_derive_points(df))
     return df
