@@ -1,23 +1,11 @@
 # from tensorflow.keras.utils import plot_model
 
-from data import read, preprocess, transform
+from data import prepared_data
 from model import Classifier, Regressor
 
 
-def run_data_preparation(path, n_trend=5):
-    print("Read data")
-    df = read(path)
-    print("Preprocess data")
-    df = preprocess(df)
-    print("Transform data")
-    df = transform(df, n_trend)
-    # print(df.shape)
-    # print(df.winner.value_counts() / df.shape[0])
-    return df
-
-
 if __name__ == "__main__":
-    df = run_data_preparation('./data/matches.csv')
+    df = prepared_data(n_trend=8)
 
     print("\nRun multiclass classification")
     clf = Classifier(df)
@@ -44,3 +32,4 @@ if __name__ == "__main__":
     # TODO: Pickle clf, rgr1, rgr2
     # TODO: Predict upcoming match day (of e.g. Bundesliga)
     # TODO: Proper Hyperparameter Tuning
+    # TODO: Feature Engineering

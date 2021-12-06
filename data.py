@@ -1,8 +1,55 @@
+from os import path
+
 from pandas import read_csv, to_datetime, DataFrame, concat
 
 
-def read(path, **kwargs):
-    """Return dataframe with relevant columns of CSV file given by path.
+DATA_DIR = './data/'
+RAW_DATA_FILENAME = 'matches.csv'
+PREP_DATA_FILE_STUB = 'prepared_'
+
+
+def prepared_data(n_trend=5, dir_path=DATA_DIR):
+    """Return prepared data as dataframe taking the last `n_trend` matches into
+    account when calculating the mean values of a team's statistics (on each
+    game day).
+    
+    Read respective CSV file, if data is already prepared.
+    Otherwise, prepare data and save result as CSV file in given `dir_path`.
+    """
+    df = None
+    filename_prep = PREP_DATA_FILE_STUB + str(n_trend) + '.csv'
+    file_path = path.join(dir_path, filename_prep)
+    if path.exists(file_path):
+        print("Read prepared data from " + file_path)
+        df = read_csv(file_path, index_col=['date', 'home', 'away'])
+    else:
+        raw_data_file_path = path.join(dir_path, RAW_DATA_FILENAME)
+        df = prepare(raw_data_file_path, n_trend)
+        print("Save prepared data in " + file_path)
+        df.to_csv(file_path)
+    # print("Check prepared data")
+    # print(df.shape)
+    # print(df.index)
+    # print(df.winner.value_counts() / df.shape[0])
+    return df
+
+def prepare(file_path, n_trend=5):
+    """Return prepared data by calling read(), preprocess() and transform().
+    
+    Read raw data from file_path, preprocess and transform data (with given
+    `n_trend`).
+    """
+    print("Read raw data from " + file_path)
+    df = read(file_path)
+    print("Preprocess raw data")
+    df = preprocess(df)
+    print("Transform data (with n_trend=" + str(n_trend) + ')')
+    df = transform(df, n_trend)
+    return df
+
+
+def read(file_path, **kwargs):
+    """Return dataframe with relevant columns of CSV file given by `file_path`.
     
     Convenience wrapper function for pd.read_csv() with defined subset of
     relevant columns.
@@ -26,7 +73,7 @@ def read(path, **kwargs):
         'League'
     ]
     dataframe = read_csv(
-        path, low_memory=False, index_col='id', usecols=cols, **kwargs
+        file_path, low_memory=False, index_col='id', usecols=cols, **kwargs
     )
     return dataframe
 
@@ -252,3 +299,7 @@ def _combine_features(data):
         'points_away'
     ])
     return df
+
+
+if __name__ == "__main__":
+    prepared(n_trend=8)
