@@ -22,8 +22,8 @@ def run_data_preparation(path, n_trend=5):
     df = preprocess(df)
     print("Transform data")
     df = transform(df, n_trend)
-    print(df.shape)
-    print(df.winner.value_counts() / df.shape[0])
+    # print(df.shape)
+    # print(df.winner.value_counts() / df.shape[0])
     return df
 
 
@@ -60,11 +60,11 @@ def read(path, **kwargs):
 def preprocess(dataframe):
     """Return preprocessed dataframe by calling _clean() and _convert().
     """
-    print(dataframe.shape)
+    # print(dataframe.shape)
     df = _clean(dataframe)
-    print(df.shape)
+    # print(df.shape)
     df = _convert(df)
-    print(df.shape)
+    # print(df.shape)
     return df
 
 def _clean(dataframe):
@@ -324,10 +324,10 @@ class Estimator:
         self.history = None
 
     def run(self, epochs=5):
-        self._check()
-        print("\nBuild model")
+        # self._check()
+        print("Build model")
         self.build_model()
-        self.model.summary()
+        # self.model.summary()
         print("Train and evaluate model")
         self.fit(epochs)
         self.model.evaluate(self.ds_test)
@@ -443,21 +443,19 @@ class Regressor(Estimator):
 
 
 if __name__ == "__main__":
-    print("DATA PREPARATION")
     df = run_data_preparation('./data/matches.csv')
 
-    print("\nMODELING")
     print("\nRun multiclass classification")
     clf = Classifier(df)
-    clf.run()
+    clf.run(epochs=100)
 
     print("\nRun regression (for home_score)")
     rgr1 = Regressor(df, target_name='home_score')
-    rgr1.run()
+    rgr1.run(epochs=100)
 
     print("\nRun regression (for away_score)")
     rgr2 = Regressor(df, target_name='away_score')
-    rgr2.run()
+    rgr2.run(epochs=100)
 
     # Plot and save model graphs
     # utils.plot_model(clf.model, to_file='./doc/gfx/model_clf.png', show_shapes=True, rankdir="LR")
@@ -469,3 +467,6 @@ if __name__ == "__main__":
     rgr1.plot_validation_curve()
     rgr2.plot_validation_curve()
 
+    # TODO: Pickle clf, rgr1, rgr2
+    # TODO: Predict upcoming match day (of e.g. Bundesliga)
+    # TODO: Proper Hyperparameter Tuning
