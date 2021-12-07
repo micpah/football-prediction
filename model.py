@@ -45,7 +45,9 @@ class Estimator:
         self.ds_val = self._dataframe_to_dataset(df_val, shuffle=False)
         self.ds_test = self._dataframe_to_dataset(df_test, shuffle=False)
         self.feature_names = list(dataframe.drop(columns=['target']).columns)
-        self.metric = None  # Set in subclass
+        self.loss = None  # Init in subclass
+        self.metric = None  # Init in subclass
+        self.last_layer = None  # Init in subclass
         self.model = None
         self.history = None
 
@@ -60,8 +62,17 @@ class Estimator:
         return self
 
     def build_model(self):
-        """Override in subclass"""
-        pass
+        # Deep Feed Forward
+        all_inputs, encoded_features = self._inputs_and_encoded_features()
+        all_features = concatenate(encoded_features)
+        x = Dense(128, activation='relu')(all_features)
+        x = Dropout(0.5)(x)
+        x = Dense(128, activation='relu')(x)
+        x = Dropout(0.5)(x)
+        output = self.last_layer(x)
+        model = Model(all_inputs, output)
+        model.compile('adam', self.loss, metrics=[self.metric])
+        self.model = model
 
     def fit(self, epochs=5):
         callbacks = [
@@ -118,22 +129,9 @@ class Estimator:
 class Classifier(Estimator):
     def __init__(self, dataframe, target_name='winner'):
         super().__init__(dataframe, target_name)
+        self.loss = 'categorical_crossentropy'
         self.metric = 'accuracy'
-
-    def build_model(self):
-        # Deep Feed Forward
-        all_inputs, encoded_features = self._inputs_and_encoded_features()
-        all_features = concatenate(encoded_features)
-        x = Dense(128, activation='relu')(all_features)
-        x = Dropout(0.5)(x)
-        x = Dense(128, activation='relu')(x)
-        x = Dropout(0.5)(x)
-        # Multiclass Classification -> Softmax
-        output = Dense(3, activation='softmax')(x)
-        model = Model(all_inputs, output)
-        model.compile(
-            'adam', 'categorical_crossentropy', metrics=[self.metric])
-        self.model = model
+        self.last_layer = Dense(3, activation='softmax')
 
     @staticmethod
     def _dataframe_to_dataset(dataframe, shuffle=True, batch_size=64):
@@ -150,18 +148,6 @@ class Classifier(Estimator):
 class Regressor(Estimator):
     def __init__(self, dataframe, target_name='home_score'):
         super().__init__(dataframe, target_name)
+        self.loss = 'mse'
         self.metric = 'mae'
- 
-    def build_model(self):
-        # Deep Feed Forward
-        all_inputs, encoded_features = self._inputs_and_encoded_features()
-        all_features = concatenate(encoded_features)
-        x = Dense(128, activation='relu')(all_features)
-        x = Dropout(0.5)(x)
-        x = Dense(128, activation='relu')(x)
-        x = Dropout(0.5)(x)
-        # Regression -> Linear
-        output = Dense(1, activation='linear')(x)
-        model = Model(all_inputs, output)
-        model.compile('adam', 'mse', metrics=[self.metric])
-        self.model = model
+        self.last_layer = Dense(1, activation='linear')
