@@ -302,4 +302,4 @@ def _combine_features(data):
 
 
 if __name__ == "__main__":
-    prepared(n_trend=8)
+    prepared_data(n_trend=8)
