@@ -81,21 +81,19 @@ class Estimator:
         return self
 
 
-    def build_model(
+    def build_model(self):
         # Deep Feed Forward
-        self, units=32, activation='relu', kernel_init='he_uniform',
-        dropout_rate=0.5, optimizer='Adam', lr=1e-3):
         model = Sequential(
             [
                 InputLayer(input_shape=(self.n_features,)),
-                Dense(units, activation, kernel_initializer=kernel_init),
-                Dropout(dropout_rate),
-                Dense(units, activation, kernel_initializer=kernel_init),
-                Dropout(dropout_rate),
-                Dense(self.output_units, self.output_activation)
+                Dense(128, activation='relu'),
+                Dropout(0.5),
+                Dense(128, activation='relu'),
+                Dropout(0.5),
+                self.last_layer
             ]
         )
-        model.compile(eval(optimizer)(lr), self.loss, metrics=[self.metric])
+        model.compile('adam', self.loss, metrics=[self.metric])
         self.model = model
 
     def fit(self, epochs=5, batch_size=64):
