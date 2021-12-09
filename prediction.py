@@ -1,22 +1,22 @@
 # from tensorflow.keras.utils import plot_model
 
 from data import prepared_data
-from model import Classifier, Regressor
+from model import Data, Classifier, Regressor
 
 
 if __name__ == "__main__":
     df = prepared_data(n_trend=8)
 
     print("\nRun multiclass classification")
-    clf = Classifier(df)
+    clf = Classifier(Data(df, target_name='winner'))
     clf.run(epochs=100)
 
     print("\nRun regression (for home_score)")
-    rgr1 = Regressor(df, target_name='home_score')
+    rgr1 = Regressor(Data(df, target_name='home_score'))
     rgr1.run(epochs=100)
 
     print("\nRun regression (for away_score)")
-    rgr2 = Regressor(df, target_name='away_score')
+    rgr2 = Regressor(Data(df, target_name='away_score'))
     rgr2.run(epochs=100)
 
     # Plot and save model graphs

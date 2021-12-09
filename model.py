@@ -1,13 +1,10 @@
 import matplotlib.pyplot as plt
 
 from numpy import split
-from tensorflow import expand_dims
-from tensorflow.autograph.experimental import do_not_convert
-from tensorflow.data import Dataset
-from tensorflow.keras import Input, Model
+from tensorflow import convert_to_tensor
+from tensorflow.keras import Sequential
 from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras.layers import concatenate, Dense, Dropout
-from tensorflow.keras.layers.experimental.preprocessing import Normalization
+from tensorflow.keras.layers import InputLayer, Dense, Dropout
 from tensorflow.keras.utils import to_categorical
 
 
@@ -20,31 +17,54 @@ def train_val_test_split(dataframe):
     print(len(test), 'test examples')
     return (train, val, test)
 
+def standardize(df_train, df_val, df_test):
+    mean = df_train.mean()
+    stddev = df_train.std()
+    train = (df_train - mean) / stddev
+    val = (df_val - mean) / stddev
+    test = (df_test - mean) / stddev
+    return (train, val, test)
 
-@do_not_convert
-def encode_numerical_feature(feature, name, dataset):
-    # Create a Normalization layer for our feature
-    normalizer = Normalization()
-    # Prepare a Dataset that only yields our feature
-    feature_ds = dataset.map(lambda x, y: x[name])
-    feature_ds = feature_ds.map(lambda x: expand_dims(x, -1))
-    # Learn the statistics of the data
-    normalizer.adapt(feature_ds)
-    # Normalize the input feature
-    encoded_feature = normalizer(feature)
-    return encoded_feature
+
+class Data:
+    def __init__(self, dataframe, target_name):
+        df = self.relevant_columns(dataframe, target_name)
+        df_trn, df_val, df_tst = train_val_test_split(df)
+        x_trn, y_trn = self.x_y_split(df_trn)
+        x_val, y_val = self.x_y_split(df_val)
+        x_tst, y_tst = self.x_y_split(df_tst)
+        x_trn, x_val, x_tst = standardize(x_trn, x_val, x_tst)
+        if target_name == 'winner':
+            y_trn = to_categorical(y_trn, 3)
+            y_val = to_categorical(y_val, 3)
+            y_tst = to_categorical(y_tst, 3)
+        self.x_trn = convert_to_tensor(x_trn)
+        self.y_trn = convert_to_tensor(y_trn)
+        self.x_val = convert_to_tensor(x_val)
+        self.y_val = convert_to_tensor(y_val)
+        self.x_tst = convert_to_tensor(x_tst)
+        self.y_tst = convert_to_tensor(y_tst)
+        self.feature_names = list(df.drop(columns=['target']).columns)
+
+    @staticmethod
+    def relevant_columns(dataframe, target_name):
+        df = dataframe.rename(columns={target_name: 'target'})
+        irrelevant_cols  = [
+            'home', 'away', 'date',
+            'home_score', 'away_score', 'winner']
+        return df.drop(columns=irrelevant_cols , errors='ignore')
+
+    @staticmethod
+    def x_y_split(dataframe):
+        y = dataframe['target']
+        X = dataframe.drop(columns=['target']).astype('float32')
+        return (X, y)
 
 
 class Estimator:
-    def __init__(self, dataframe, target_name):
-        dataframe = dataframe.rename(columns={target_name: 'target'})
-        cols  = ['home', 'away', 'date', 'home_score', 'away_score', 'winner']
-        dataframe = dataframe.drop(columns=cols , errors='ignore')
-        df_train, df_val, df_test = train_val_test_split(dataframe)
-        self.ds_train = self._dataframe_to_dataset(df_train)
-        self.ds_val = self._dataframe_to_dataset(df_val, shuffle=False)
-        self.ds_test = self._dataframe_to_dataset(df_test, shuffle=False)
-        self.feature_names = list(dataframe.drop(columns=['target']).columns)
+    def __init__(self, data):
+        self.data = data
+        self.n_features = len(data.feature_names)
         self.loss = None  # Init in subclass
         self.metric = None  # Init in subclass
         self.last_layer = None  # Init in subclass
@@ -52,29 +72,31 @@ class Estimator:
         self.history = None
 
     def run(self, epochs=5):
-        # self._check()
         print("Build model")
         self.build_model()
         # self.model.summary()
         print("Train and evaluate model")
         self.fit(epochs)
-        self.model.evaluate(self.ds_test)
+        self.model.evaluate(self.data.x_tst, self.data.y_tst)
         return self
+
 
     def build_model(self):
         # Deep Feed Forward
-        all_inputs, encoded_features = self._inputs_and_encoded_features()
-        all_features = concatenate(encoded_features)
-        x = Dense(128, activation='relu')(all_features)
-        x = Dropout(0.5)(x)
-        x = Dense(128, activation='relu')(x)
-        x = Dropout(0.5)(x)
-        output = self.last_layer(x)
-        model = Model(all_inputs, output)
+        model = Sequential(
+            [
+                InputLayer(input_shape=(self.n_features,)),
+                Dense(128, activation='relu'),
+                Dropout(0.5),
+                Dense(128, activation='relu'),
+                Dropout(0.5),
+                self.last_layer
+            ]
+        )
         model.compile('adam', self.loss, metrics=[self.metric])
         self.model = model
 
-    def fit(self, epochs=5):
+    def fit(self, epochs=5, batch_size=64):
         callbacks = [
             # ModelCheckpoint(
             #     "best_model.h5", save_best_only=True, monitor="val_loss"),
@@ -83,8 +105,10 @@ class Estimator:
                 restore_best_weights=True)
         ]
         self.history = self.model.fit(
-            self.ds_train, epochs=epochs, callbacks=callbacks,
-            validation_data=self.ds_val)
+            self.data.x_trn, self.data.y_trn,
+            batch_size, epochs,
+            callbacks=callbacks,
+            validation_data=(self.data.x_val, self.data.y_val))
 
     def plot_validation_curve(self):
         plt.figure()
@@ -97,57 +121,18 @@ class Estimator:
         plt.show()
         plt.close()
 
-    @staticmethod
-    def _dataframe_to_dataset(dataframe, shuffle=True, batch_size=64):
-        df = dataframe.copy()
-        labels = df.pop('target')
-        ds = Dataset.from_tensor_slices((dict(df), labels))
-        if shuffle:
-            ds = ds.shuffle(buffer_size=len(dataframe))
-        ds = ds.batch(batch_size)
-        ds = ds.prefetch(batch_size)
-        return ds
-
-    def _inputs_and_encoded_features(self):
-        all_inputs = []
-        encoded_features = []
-        # Numerical features
-        for name in self.feature_names:
-            feature = Input(shape=(1,), name=name)
-            feature_en = encode_numerical_feature(feature, name, self.ds_train)
-            all_inputs.append(feature)
-            encoded_features.append(feature_en)
-        return (all_inputs, encoded_features)
-
-    def _check(self):
-        [(train_features, label_batch)] = self.ds_train.take(1)
-        print('Every feature:', list(train_features.keys()))
-        print('A batch of goals_diff:', train_features['goals_diff'])
-        print('A batch of targets:', label_batch )
-
 
 class Classifier(Estimator):
-    def __init__(self, dataframe, target_name='winner'):
-        super().__init__(dataframe, target_name)
+    def __init__(self, data):
+        super().__init__(data)
         self.loss = 'categorical_crossentropy'
         self.metric = 'accuracy'
         self.last_layer = Dense(3, activation='softmax')
 
-    @staticmethod
-    def _dataframe_to_dataset(dataframe, shuffle=True, batch_size=64):
-        df = dataframe.copy()
-        labels = to_categorical(df.pop('target'), 3)
-        ds = Dataset.from_tensor_slices((dict(df), labels))
-        if shuffle:
-            ds = ds.shuffle(buffer_size=len(dataframe))
-        ds = ds.batch(batch_size)
-        ds = ds.prefetch(batch_size)
-        return ds
-
 
 class Regressor(Estimator):
-    def __init__(self, dataframe, target_name='home_score'):
-        super().__init__(dataframe, target_name)
+    def __init__(self, data):
+        super().__init__(data)
         self.loss = 'mse'
         self.metric = 'mae'
         self.last_layer = Dense(1, activation='linear')
