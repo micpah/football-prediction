@@ -78,12 +78,11 @@ class Estimator:
     def run(self, epochs=5):
         print("Build model")
         self.build_model()
-        # self.model.summary()
+        self.model.summary()
         print("Train and evaluate model")
         self.fit(epochs)
         self.model.evaluate(self.data.x_tst, self.data.y_tst)
         return self
-
 
     def build_model(self):
         # Deep Feed Forward
@@ -189,6 +188,22 @@ class Classifier(Estimator):
         self.output_units = 3
         self.output_activation = 'softmax'
 
+    def build_model(self):
+        # Deep Feed Forward
+        # Parameters tuned by Hyperband
+        model = Sequential(
+            [
+                InputLayer(input_shape=(self.n_features,)),
+                Dense(64, activation='elu'),
+                Dropout(0.45),
+                Dense(64, activation='elu'),
+                Dropout(0.45),
+                Dense(self.output_units, self.output_activation)
+            ]
+        )
+        model.compile(Adam(0.0003), self.loss, metrics=[self.metric])
+        self.model = model
+
 
 class Regressor(Estimator):
     def __init__(self, data):
@@ -198,6 +213,19 @@ class Regressor(Estimator):
         self.output_units = 1
         self.output_activation = 'linear'
 
+    def build_model(self):
+        # Deep Feed Forward
+        # Parameters tuned by Hyperband
+        model = Sequential(
+            [
+                InputLayer(input_shape=(self.n_features,)),
+                Dense(64, activation='relu'),
+                Dropout(0.3),
+                Dense(self.output_units, self.output_activation)
+            ]
+        )
+        model.compile(Adam(0.002), self.loss, metrics=[self.metric])
+        self.model = model
 
 
 if __name__ == "__main__":
