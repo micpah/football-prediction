@@ -194,7 +194,10 @@ class Regressor(Estimator):
 
 
 if __name__ == "__main__":
+    from time import gmtime, strftime
     from data import prepared_data
+
+    print(strftime("%Y-%m-%d %H:%M:%S", gmtime()))
 
     df = prepared_data(n_trend=8)
 
@@ -212,3 +215,5 @@ if __name__ == "__main__":
     rgr2 = Regressor(Data(df, target_name='away_score'))
     rgr2.hypertune(project_name='rgr_away', overwrite=True, max_epochs=200)
     rgr2.fit_and_evaluate_best_model()
+
+    print(strftime("%Y-%m-%d %H:%M:%S", gmtime()))
