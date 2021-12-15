@@ -9,15 +9,15 @@ if __name__ == "__main__":
 
     print("\nRun multiclass classification")
     clf = Classifier(Data(df, target_name='winner'))
-    clf.run(epochs=100)
+    clf.run(epochs=200)
 
     print("\nRun regression (for home_score)")
     rgr1 = Regressor(Data(df, target_name='home_score'))
-    rgr1.run(epochs=100)
+    rgr1.run(epochs=200)
 
     print("\nRun regression (for away_score)")
     rgr2 = Regressor(Data(df, target_name='away_score'))
-    rgr2.run(epochs=100)
+    rgr2.run(epochs=200)
 
     # Plot and save model graphs
     # plot_model(clf.model, to_file='./doc/gfx/model_clf.png', show_shapes=True, rankdir="LR")
@@ -29,7 +29,4 @@ if __name__ == "__main__":
     rgr1.plot_validation_curve()
     rgr2.plot_validation_curve()
 
-    # TODO: Pickle clf, rgr1, rgr2
     # TODO: Predict upcoming match day (of e.g. Bundesliga)
-    # TODO: Proper Hyperparameter Tuning
-    # TODO: Feature Engineering
