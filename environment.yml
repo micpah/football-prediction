@@ -1,0 +1,17 @@
+name: py397tf
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - nomkl
+  - python>=3.9
+  - ipykernel
+  - numpy
+  - matplotlib
+  - seaborn
+  - pandas
+  - scikit-learn
+  - tensorflow
+  - tensorboard
+  - keras-tuner
+  - pydot
