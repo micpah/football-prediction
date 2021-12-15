@@ -11,7 +11,7 @@ from tensorflow.keras.utils import to_categorical
 def train_val_test_split(dataframe):
     train, val, test = split(
         dataframe.sample(frac=1),
-        [int(0.75*len(dataframe)), int(0.9*len(dataframe))])
+        [int(0.7*len(dataframe)), int(0.85*len(dataframe))])
     print(len(train), 'training examples')
     print(len(val), 'validation examples')
     print(len(test), 'test examples')
