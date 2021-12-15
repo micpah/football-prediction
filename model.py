@@ -69,7 +69,8 @@ class Estimator:
         self.n_features = len(data.feature_names)
         self.loss = None  # Init in subclass
         self.metric = None  # Init in subclass
-        self.last_layer = None  # Init in subclass
+        self.output_units = None  # Init in subclass
+        self.output_activation = None  # Init in subclass
         self.model = None
         self.history = None
         self.tuner = None
@@ -93,7 +94,7 @@ class Estimator:
                 Dropout(0.5),
                 Dense(128, activation='relu'),
                 Dropout(0.5),
-                self.last_layer
+                Dense(self.output_units, self.output_activation)
             ]
         )
         model.compile('adam', self.loss, metrics=[self.metric])
@@ -169,7 +170,8 @@ class Classifier(Estimator):
         super().__init__(data)
         self.loss = 'categorical_crossentropy'
         self.metric = 'accuracy'
-        self.last_layer = Dense(3, activation='softmax')
+        self.output_units = 3
+        self.output_activation = 'softmax'
 
 
 class Regressor(Estimator):
@@ -177,4 +179,5 @@ class Regressor(Estimator):
         super().__init__(data)
         self.loss = 'mse'
         self.metric = 'mae'
-        self.last_layer = Dense(1, activation='linear')
+        self.output_units = 1
+        self.output_activation = 'linear'
