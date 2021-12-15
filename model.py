@@ -3,9 +3,11 @@ import matplotlib.pyplot as plt
 from numpy import split
 from tensorflow import convert_to_tensor
 from tensorflow.keras import Sequential
-from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.callbacks import EarlyStopping, TensorBoard
 from tensorflow.keras.layers import InputLayer, Dense, Dropout
+from tensorflow.keras.optimizers import Adam, RMSprop
 from tensorflow.keras.utils import to_categorical
+from keras_tuner import Hyperband
 
 
 def train_val_test_split(dataframe):
@@ -70,6 +72,7 @@ class Estimator:
         self.last_layer = None  # Init in subclass
         self.model = None
         self.history = None
+        self.tuner = None
 
     def run(self, epochs=5):
         print("Build model")
@@ -102,6 +105,52 @@ class Estimator:
             batch_size, epochs,
             callbacks=[EarlyStopping(patience=20, restore_best_weights=True)],
             validation_data=(self.data.x_val, self.data.y_val))
+
+    def hypertune(self, project_name, overwrite, max_epochs=80, batch_size=64):
+        tuner = Hyperband(
+            self.build_hypermodel, 'val_loss', max_epochs,
+            directory='logs', project_name=project_name, overwrite=overwrite,
+        )
+        tuner.search_space_summary()
+        tuner.search(
+            self.data.x_trn, self.data.y_trn,
+            batch_size=batch_size,
+            callbacks = [
+                EarlyStopping(patience=20),
+                TensorBoard('logs/tb/'+project_name)],
+            validation_data=(self.data.x_val, self.data.y_val),
+        )
+        tuner.results_summary()
+        self.tuner = tuner
+
+    def build_hypermodel(self, hp):
+        n_layers, acti, w_init, dr, optimizer, lr = self.hyperparameters(hp)
+        model = Sequential([InputLayer(input_shape=(self.n_features,))])
+        # Tune the number of layers
+        for i in range(n_layers):
+            model.add(Dense(
+                # Tune number of units separately
+                hp.Choice(f"units_{i}", [32, 64, 128, 256, 512]),
+                activation=acti, kernel_initializer=w_init))
+            model.add(Dropout(dr))
+        model.add(Dense(self.output_units, self.output_activation))
+        model.compile(eval(optimizer)(lr), self.loss, metrics=[self.metric])
+        return model
+
+    @staticmethod
+    def hyperparameters(hp):
+        n_hidden_layers = hp.Int('n_hidden_layers', min_value=1, max_value=3)
+        activation = hp.Choice('activation', ['relu', 'tanh', 'elu'])
+        kernel_initializer = hp.Choice(
+            'kernel_initializer',['he_uniform', 'glorot_uniform'])
+        dropout_rate = hp.Float('rate', min_value=0.2, max_value=0.5, step=0.1)
+        optimizer = hp.Choice('optimizer', ['Adam', 'RMSprop'])
+        lr = hp.Float('lr', min_value=1e-4, max_value=1e-2, sampling='log')
+        params = (
+            n_hidden_layers, activation, kernel_initializer,
+            dropout_rate, optimizer, lr
+        )
+        return params
 
     def plot_validation_curve(self):
         plt.figure()
