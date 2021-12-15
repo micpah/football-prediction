@@ -181,3 +181,22 @@ class Regressor(Estimator):
         self.metric = 'mae'
         self.output_units = 1
         self.output_activation = 'linear'
+
+
+
+if __name__ == "__main__":
+    from data import prepared_data
+
+    df = prepared_data(n_trend=8)
+
+    print("\nTune hyperparameters for multiclass classification")
+    clf = Classifier(Data(df, target_name='winner'))
+    clf.hypertune(project_name='clf', overwrite=True, max_epochs=200)
+
+    print("\nTune hyperparameters for regression (of home_score)")
+    rgr1 = Regressor(Data(df, target_name='home_score'))
+    rgr1.hypertune(project_name='rgr_home', overwrite=True, max_epochs=200)
+
+    print("\nTune hyperparameters for regression (of away_score)")
+    rgr2 = Regressor(Data(df, target_name='away_score'))
+    rgr2.hypertune(project_name='rgr_away', overwrite=True, max_epochs=200)
