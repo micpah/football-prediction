@@ -97,17 +97,10 @@ class Estimator:
         self.model = model
 
     def fit(self, epochs=5, batch_size=64):
-        callbacks = [
-            # ModelCheckpoint(
-            #     "best_model.h5", save_best_only=True, monitor="val_loss"),
-            EarlyStopping(
-                monitor="val_loss", patience=50, verbose=1,
-                restore_best_weights=True)
-        ]
         self.history = self.model.fit(
             self.data.x_trn, self.data.y_trn,
             batch_size, epochs,
-            callbacks=callbacks,
+            callbacks=[EarlyStopping(patience=20, restore_best_weights=True)],
             validation_data=(self.data.x_val, self.data.y_val))
 
     def plot_validation_curve(self):
