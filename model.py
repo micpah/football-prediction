@@ -153,6 +153,15 @@ class Estimator:
         )
         return params
 
+
+    def fit_and_evaluate_best_model(self, epochs=200, batch_size=64):
+        best_hps = self.tuner.get_best_hyperparameters(1)
+        print("\nTrain and evaluate best model (with following parameters):")
+        print(best_hps[0].values)
+        self.model = self.build_hypermodel(best_hps[0])
+        self.fit(epochs, batch_size)
+        self.model.evaluate(self.data.x_tst, self.data.y_tst)
+
     def plot_validation_curve(self):
         plt.figure()
         plt.plot(self.history.history[self.metric])
@@ -192,11 +201,14 @@ if __name__ == "__main__":
     print("\nTune hyperparameters for multiclass classification")
     clf = Classifier(Data(df, target_name='winner'))
     clf.hypertune(project_name='clf', overwrite=True, max_epochs=200)
+    clf.fit_and_evaluate_best_model()
 
     print("\nTune hyperparameters for regression (of home_score)")
     rgr1 = Regressor(Data(df, target_name='home_score'))
     rgr1.hypertune(project_name='rgr_home', overwrite=True, max_epochs=200)
+    rgr1.fit_and_evaluate_best_model()
 
     print("\nTune hyperparameters for regression (of away_score)")
     rgr2 = Regressor(Data(df, target_name='away_score'))
     rgr2.hypertune(project_name='rgr_away', overwrite=True, max_epochs=200)
+    rgr2.fit_and_evaluate_best_model()
