@@ -162,6 +162,13 @@ class Estimator:
         self.fit(epochs, batch_size)
         self.model.evaluate(self.data.x_tst, self.data.y_tst)
 
+    def load_tuner(self, project_name, max_epochs=80):
+        tuner = Hyperband(
+            self.build_hypermodel, 'val_loss', max_epochs,
+            directory='logs', project_name=project_name, overwrite=False,
+        )
+        return tuner
+
     def plot_validation_curve(self):
         plt.figure()
         plt.plot(self.history.history[self.metric])
