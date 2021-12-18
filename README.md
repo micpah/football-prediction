@@ -10,5 +10,5 @@ Predict scores of football matches:
 
 ## Code
 - data.py:       Functions for data preparation
-- model.py:      Classes and functions for modeling (classification and regression)
-- prediction.py: Main python file
+- model.py:      Classes and functions for modeling incl. hyperparameter tuning
+- prediction.py: Calls to the above functions to perform multiclass classification and both regression tasks (without hyperparameter tuning)
